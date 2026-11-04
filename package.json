@@ -1,0 +1,28 @@
+{
+  "name": "qimen-shijia-zhuanpan",
+  "version": "1.0.0",
+  "private": true,
+  "description": "奇门遁甲排盘插件（转盘 · 时家奇门）：真太阳时校正、三维叠加九宫格、四害标记、81 组十干克应、JSON 存盘",
+  "main": "src/engine/qimen.js",
+  "scripts": {
+    "build": "node scripts/build-browser-bundle.js",
+    "test": "node test/run-tests.js",
+    "test:smoke": "node test/smoke-matrix.js",
+    "serve": "node scripts/serve.js",
+    "start": "npm run build && npm run serve",
+    "check": "npm run build && npm test && npm run test:smoke",
+    "verify:click": "node scripts/verify-click.js",
+    "verify:export": "node scripts/verify-export.js"
+  },
+  "keywords": [
+    "qimen",
+    "奇门遁甲",
+    "转盘",
+    "时家",
+    "排盘"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  }
+}

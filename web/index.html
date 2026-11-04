@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>奇门遁甲排盘 · 转盘时家奇门</title>
+<meta name="description" content="转盘·时家奇门排盘插件：真太阳时校正、三维叠加九宫格、四害标记、81 组十干克应、JSON 存盘。" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- ============ 顶栏：时间 / 地点 / 操作 ============ -->
+  <header class="topbar">
+    <div class="topbar-main">
+      <div class="brand">
+        <h1>奇门遁甲 · 排盘</h1>
+        <span class="sub">转盘 · 时家</span>
+      </div>
+
+      <div class="controls">
+        <span class="field">
+          <label for="in-date">日期</label>
+          <input id="in-date" type="date" value="2026-11-04" />
+        </span>
+        <span class="field">
+          <label for="in-time">时间</label>
+          <input id="in-time" type="time" value="14:30" step="60" />
+        </span>
+        <span class="field">
+          <label for="in-city">地区</label>
+          <select id="in-city"></select>
+        </span>
+        <span class="field field-geo" title="手动经纬度；东经、北纬为正">
+          <label for="in-lng">经度</label>
+          <input id="in-lng" type="number" value="116.4074" step="0.0001" min="-180" max="180" />
+          <label for="in-lat">纬度</label>
+          <input id="in-lat" type="number" value="39.9042" step="0.0001" min="-90" max="90" />
+        </span>
+
+        <button class="btn" id="btn-geo" title="使用浏览器定位">定位</button>
+        <button class="btn primary" id="btn-paipan">起 局</button>
+        <button class="btn ghost" id="btn-now" title="使用当前时刻">现在</button>
+      </div>
+
+      <div class="actions">
+        <button class="btn" id="btn-view" aria-pressed="false" title="切换三维层分离视图">3D 叠加</button>
+        <button class="btn" id="btn-save">保存 JSON</button>
+        <button class="btn" id="btn-export-ai" title="导出 Markdown/TXT 供大模型断局分析">导出分析文本</button>
+        <button class="btn ghost" id="btn-load" title="载入此前保存的 JSON 以复现盘面">载入</button>
+        <input id="file-load" type="file" accept="application/json,.json" hidden />
+      </div>
+    </div>
+
+    <!-- 局信息条 -->
+    <div class="ju-bar" id="ju-bar">
+      <span class="pill hl">四柱 <b id="pill-sizhu">—</b></span>
+      <span class="pill">局 <b id="pill-ju">—</b></span>
+      <span class="pill">节气 <b id="pill-jieqi">—</b></span>
+      <span class="pill">三元 <b id="pill-yuan">—</b></span>
+      <span class="pill">值符 <b id="pill-zhifu">—</b></span>
+      <span class="pill">值使 <b id="pill-zhishi">—</b></span>
+      <span class="pill">旬空 <b id="pill-kong">—</b></span>
+      <span class="pill">马星 <b id="pill-ma">—</b></span>
+      <span class="ju-topic">
+        <label for="in-topic">预测事项</label>
+        <input id="in-topic" type="text" placeholder="选填，如：测今日出行" maxlength="60" />
+      </span>
+      <span class="ju-tools">
+        <label for="in-rumu">入墓</label>
+        <select id="in-rumu">
+          <option value="A" selected>A 口诀派</option>
+          <option value="B">B 墓库派</option>
+        </select>
+      </span>
+      <span class="meta-note" id="meta-note"></span>
+    </div>
+  </header>
+
+  <!-- ============ 九宫舞台 ============ -->
+  <main class="stage">
+    <div class="stage-head">
+      <div class="layer-tabs" role="group" aria-label="图层聚焦">
+        <button class="layer-tab" data-layer="all" aria-pressed="true">全 部</button>
+        <button class="layer-tab" data-layer="shen" aria-pressed="false">神 盘</button>
+        <button class="layer-tab" data-layer="tian" aria-pressed="false">天 盘</button>
+        <button class="layer-tab" data-layer="men" aria-pressed="false">人 盘</button>
+        <button class="layer-tab" data-layer="di" aria-pressed="false">地 盘</button>
+      </div>
+      <span class="view-note" id="view-note">俯视可读 · 点击顶部图层可三维层聚焦 · 拖动旋转</span>
+    </div>
+
+    <div class="scene-wrap" id="scene-wrap">
+      <div class="scene-rotor" id="scene-rotor">
+        <div class="board" id="board"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ============ 详情面板 ============ -->
+  <aside class="panel">
+    <div class="panel-head">
+      <h2 id="panel-title">单宫详情</h2>
+      <span class="tag" id="panel-tag">未选宫</span>
+    </div>
+    <div class="panel-body" id="panel-body">
+      <div class="empty-hint">
+        点击任意宫位查看该宫的<b>四层符号释义</b>、<b>十干克应</b>与<b>四害 / 空亡 / 马星</b>状态。<br /><br />
+        提示：<br />
+        · 顶部 <kbd>神 / 天 / 人 / 地</kbd> 可单独抬升一层，便于辨认；<br />
+        · 按住盘面拖动可旋转视角；<br />
+        · <kbd>3D 叠加</kbd> 切换层分离视图，默认仍为九宫格俯视可读态。
+      </div>
+    </div>
+  </aside>
+
+  <!-- ============ 图例 ============ -->
+  <footer class="legend" id="legend">
+    <div class="grp"><span>内外盘</span>
+      <span class="sw"><i class="chip nei"></i>内盘</span>
+      <span class="sw"><i class="chip wai"></i>外盘</span>
+      <span class="sw" style="color:var(--txt-2)">中五宫不属内外</span>
+    </div>
+    <div class="grp"><span>四害</span>
+      <span class="sw"><i class="chip rumu"></i>入墓</span>
+      <span class="sw"><i class="chip jixing"></i>击刑</span>
+      <span class="sw"><i class="chip menpo"></i>门迫</span>
+      <span class="sw"><i class="chip both"></i>刑+墓</span>
+    </div>
+    <div class="grp"><span>神煞</span>
+      <span class="sw"><i class="dot kong"></i>空亡</span>
+      <span class="sw"><i class="dot ma"></i>马星</span>
+    </div>
+    <div class="grp">
+      <span class="sw" style="color:var(--c-shen)">神盘</span>
+      <span class="sw" style="color:var(--c-tian)">天盘（九星 / 天盘奇仪）</span>
+      <span class="sw" style="color:var(--c-men)">人盘（八门）</span>
+      <span class="sw" style="color:var(--c-di)">地盘（奇仪）</span>
+    </div>
+  </footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="modal-mask" id="modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="modal-title">盘面 JSON</h3>
+      <span class="tag" id="modal-tag"></span>
+    </div>
+    <div class="modal-body"><pre id="modal-pre"></pre></div>
+    <div class="modal-foot">
+      <button class="btn ghost" id="btn-modal-copy">复制</button>
+      <button class="btn" id="btn-modal-download">下载</button>
+      <button class="btn primary" id="btn-modal-close">关闭</button>
+    </div>
+  </div>
+</div>
+
+<script src="qimen.engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
