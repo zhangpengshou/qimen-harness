@@ -521,6 +521,19 @@ button { cursor: pointer; }
   border: 1px solid rgba(127, 179, 255, 0.26);
 }
 
+/* 寄宫干（中五寄坤二 / 天禽随天芮）：与本宫干同排，暖色虚线框以区分 */
+.ji-token {
+  font-size: calc(var(--cell-w) * 0.128);
+  color: #d8c9a8;
+  border-style: dashed;
+  margin-right: 2px;
+}
+.qi-token.ji-token { border-color: rgba(216, 201, 168, 0.42); }
+.diqi-token.ji-token {
+  background: rgba(216, 201, 168, 0.08);
+  border-color: rgba(216, 201, 168, 0.42);
+}
+
 /* 四害样式（互不覆盖，可叠加） */
 .harm-rumu { color: var(--harm-rumu) !important; text-shadow: 0 0 10px rgba(160, 145, 129, 0.45); }
 .harm-jixing {
@@ -543,21 +556,18 @@ button { cursor: pointer; }
   0%, 100% { box-shadow: 0 0 0 1px rgba(255, 138, 155, 0.6), 0 0 10px var(--harm-both-glow); }
   50% { box-shadow: 0 0 0 1px rgba(255, 138, 155, 0.9), 0 0 20px var(--harm-both-glow); }
 }
-.harm-underline {
-  text-decoration: underline wavy currentColor;
-  text-underline-offset: 3px;
-  text-decoration-thickness: 1px;
-}
+/* 全站不使用波浪下划线：既避免与浏览器拼写检查红线混淆，也让四害只靠颜色/光晕区分 */
 
-/* 角标：空 / 马（右上） */
+/* 角标：空 / 马（右上）—— 同宫时横排，顺序为「空 马」 */
 .corner-badges {
   position: absolute;
   right: 5px;
   top: 5px;
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 3px;
   z-index: 8;
   pointer-events: none;
 }

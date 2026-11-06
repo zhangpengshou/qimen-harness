@@ -84,6 +84,11 @@
     return String(n).padStart(2, '0');
   }
 
+  /** 双干显示：寄宫干在前、本宫干在后（如「戊 辛」「壬 丙」） */
+  function ganWithJi(gan, extra) {
+    return extra ? `${extra} ${gan || '—'}` : gan || '—';
+  }
+
   /** 由「天盘干 + 地盘干」取克应 */
   function keYingOf(tian, di) {
     if (!tian || !di) return null;
@@ -318,14 +323,18 @@
       an.title = `暗干（隐干）· ${anGan}：${(STEM_MEANINGS[anGan] || '')}`;
       starRow.appendChild(an);
     }
-    const starName = document.createElement('span');
-    starName.className = 'star-name';
-    starName.textContent = data.star_display || data.star || '—';
-    const starMeaning = (STARS[data.star] || {}).meaning || '';
-    starName.title =
-      `九星 · ${data.star || ''}：${starMeaning}` +
-      (data.star_extra ? `\n${data.star_extra}与天芮同宫（寄坤二宫），合并显示为「芮禽」` : '');
-    starRow.appendChild(starName);
+    // 中五宫不在盘面单列「天禽」：天禽寄坤二宫、随天芮同行——
+    // 星名已合并到芮禽宫，中宫之干已寄到坤二宫地盘与芮禽宫天盘（双干）。
+    if (data.index !== 5) {
+      const starName = document.createElement('span');
+      starName.className = 'star-name';
+      starName.textContent = data.star_display || data.star || '—';
+      const starMeaning = (STARS[data.star] || {}).meaning || '';
+      starName.title =
+        `九星 · ${data.star || ''}：${starMeaning}` +
+        (data.star_extra ? `\n${data.star_extra}与天芮同宫（寄坤二宫），合并显示为「芮禽」` : '');
+      starRow.appendChild(starName);
+    }
     main.appendChild(starRow);
 
     // 右列：天盘奇仪 / 地盘奇仪（同一容器内右对齐，保证严格同一条垂直线）
@@ -334,6 +343,10 @@
 
     const tianCell = document.createElement('div');
     tianCell.className = 'p-tian';
+    // 芮禽宫：先列天禽携来的中宫干，再列天芮携来的本位干
+    if (data.index !== 5 && data.tian_pan_qi_yi_extra) {
+      tianCell.appendChild(makeJiToken(data.tian_pan_qi_yi_extra, 'tian'));
+    }
     if (data.tian_pan_qi_yi && data.index !== 5) {
       const q = document.createElement('span');
       q.className = 'qi-token';
@@ -363,10 +376,10 @@
       doorCell.textContent = data.door;
       doorCell.title = `八门 · ${data.door}：${(DOORS[data.door_key] || {}).meaning || ''}`;
       if (data.flags.men_po.active) {
-        doorCell.classList.add('harm-menpo', 'harm-underline');
+        doorCell.classList.add('harm-menpo');
         doorCell.title += '\n门迫：门五行克宫五行';
       }
-    } else {
+    } else if (data.index !== 5) {
       doorCell.classList.add('is-empty');
       doorCell.textContent = '—';
     }
@@ -375,6 +388,10 @@
     // 右列下：地盘奇仪
     const diCell = document.createElement('div');
     diCell.className = 'p-di';
+    // 坤二宫：先列中五宫寄来的干，再列本宫地盘奇仪
+    if (data.di_pan_qi_yi_extra) {
+      diCell.appendChild(makeJiToken(data.di_pan_qi_yi_extra, 'di'));
+    }
     if (data.di_pan_qi_yi) {
       const q = document.createElement('span');
       q.className = 'diqi-token';
@@ -399,6 +416,17 @@
     frag.appendChild(label);
 
     return frag;
+  }
+
+  /** 寄宫干（中五寄坤二 / 天禽随天芮）：与天盘、地盘本宫干同排显示 */
+  function makeJiToken(gan, layer) {
+    const s = document.createElement('span');
+    s.className = (layer === 'tian' ? 'qi-token' : 'diqi-token') + ' ji-token';
+    s.textContent = gan;
+    s.title =
+      (layer === 'tian' ? '天禽随天芮携来' : '中五宫寄坤二宫') +
+      `之中宫地盘奇仪 · ${gan}：${STEM_MEANINGS[gan] || ''}`;
+    return s;
   }
 
   function makeBadge(text, cls) {
@@ -485,21 +513,26 @@
     kv.appendChild(ddGan(data.god || '—', data.god ? GOD_MEANINGS[data.god] : '本宫不列八神（中五宫）'));
     kv.appendChild(dt('九星'));
     kv.appendChild(
-      ddGan(
-        data.star_display || data.star || '—',
-        data.star
-          ? (STARS[data.star] || {}).meaning +
-            (data.star_extra ? `\n天禽随天芮同宫，合并显示为「芮禽」。` : '')
-          : '本宫不列九星'
-      )
+      data.index === 5
+        ? ddGan('—', '中五宫不单列九星：天禽寄坤二宫、随天芮同行；星名合并为「芮禽」，中宫之干寄至坤二宫与芮禽宫作双干。')
+        : ddGan(
+            data.star_display || data.star || '—',
+            data.star
+              ? (STARS[data.star] || {}).meaning +
+                (data.star_extra ? `\n天禽随天芮同宫，合并显示为「芮禽」。` : '')
+              : '本宫不列九星'
+          )
     );
     kv.appendChild(dt('天盘奇仪'));
     kv.appendChild(
       ddGan(
-        data.tian_pan_qi_yi || '—',
-        data.tian_pan_qi_yi
+        ganWithJi(data.tian_pan_qi_yi, data.tian_pan_qi_yi_extra),
+        (data.tian_pan_qi_yi
           ? `天盘（客）之干，随九星运转。${STEM_MEANINGS[data.tian_pan_qi_yi] || ''}`
-          : ''
+          : '') +
+          (data.tian_pan_qi_yi_extra
+            ? `\n含寄宫干 ${data.tian_pan_qi_yi_extra}：天禽随天芮携来之中五宫地盘奇仪。`
+            : '')
       )
     );
     kv.appendChild(dt('八门'));
@@ -507,13 +540,37 @@
     kv.appendChild(dt('地盘奇仪'));
     kv.appendChild(
       ddGan(
-        data.di_pan_qi_yi || '—',
-        data.di_pan_qi_yi
+        ganWithJi(data.di_pan_qi_yi, data.di_pan_qi_yi_extra),
+        (data.di_pan_qi_yi
           ? `地盘（主）之干，为九宫本气。${STEM_MEANINGS[data.di_pan_qi_yi] || ''}`
-          : ''
+          : '') +
+          (data.di_pan_qi_yi_extra
+            ? `\n含寄宫干 ${data.di_pan_qi_yi_extra}：中五宫寄坤二宫之地盘奇仪。`
+            : '')
       )
     );
     body.appendChild(kv);
+
+    // ---- 中五寄宫（双干来源） ----
+    if (data.index === 5 || data.di_pan_qi_yi_extra || data.tian_pan_qi_yi_extra) {
+      body.appendChild(secTitle('中 五 寄 宫'));
+      const jiCard = document.createElement('div');
+      jiCard.className = 'an-gan-card';
+      const jiName = document.createElement('div');
+      jiName.className = 'an-name';
+      const jiGan =
+        (chart.meta.ji_gong && chart.meta.ji_gong.stem) ||
+        data.di_pan_qi_yi_extra || data.tian_pan_qi_yi_extra || '—';
+      jiName.textContent = `中宫干 ${jiGan} → 坤二宫`;
+      jiCard.appendChild(jiName);
+      const jiMean = document.createElement('div');
+      jiMean.className = 'meaning';
+      jiMean.textContent =
+        '中五宫无门无神，天禽寄坤二宫并随天芮同行：坤二宫【地盘】与芮禽宫【天盘】各多出一干，' +
+        '盘面按「寄宫干在前、本宫干在后」显示；该寄干与天盘干、地盘干同参。';
+      jiCard.appendChild(jiMean);
+      body.appendChild(jiCard);
+    }
 
     // ---- 暗干（隐干） ----
     body.appendChild(secTitle('暗 干（隐 干）'));
@@ -533,9 +590,15 @@
     anCard.appendChild(anMean);
     const anRule = document.createElement('div');
     anRule.className = 'an-rule';
+    const ag = chart.meta.an_gan_start;
+    const isFuYin = !!(ag && ag.source === 'zhong_gong_fu_yin');
+    const agStartDesc = isFuYin
+      ? '中五宫（伏吟归中）'
+      : `值使门落宫（第${ag ? ag.palace : '—'}宫）`;
     anRule.textContent =
-      `排法：时干${chart.meta.an_gan_start ? `（${chart.meta.an_gan_start.stem}）` : ''}起于时干落宫，` +
+      `排法：时干${ag ? `（${ag.stem}）` : ''}起于${agStartDesc}，` +
       `循奇仪序「戊己庚辛壬癸丁丙乙」${chart.meta.yinyang_dun === 'yang' ? '阳遁顺飞' : '阴遁逆飞'}布九宫。` +
+      (isFuYin ? '本局值使门与时干同宫（伏吟），暗干归中五宫起飞以免与地盘逐宫重合。' : '') +
       `口径 ${chart.meta.an_gan_rule || 'shigan-feibu-v1'}。`;
     anCard.appendChild(anRule);
     body.appendChild(anCard);
