@@ -28,6 +28,7 @@
     selected: null, // 选中的宫位序号
     focusLayer: 'all', // all | shen | tian | men | di
     mode3d: false,
+    showChangSheng: true, // 是否显示天盘干的十二长生标记
     // 默认 0°：真正的俯视可读态，且 3D 透视不会让宫位命中区域偏移
     rotX: 0,
     rotY: 0,
@@ -365,6 +366,12 @@
           q.title += '\n击刑：天盘奇仪落相刑之宫';
         }
       }
+      // 十二长生只标天盘干：小字暗色，绝对定位于该干正上方
+      const csInfo = (data.chang_sheng || {}).tian_pan;
+      if (csInfo) {
+        q.appendChild(makeChangShengTag(csInfo));
+        q.title += `\n十二长生：${csInfo.name}（${csInfo.level}，寄生${csInfo.branch}）— ${csInfo.meaning}`;
+      }
       tianCell.appendChild(q);
     }
     rightCol.appendChild(tianCell);
@@ -418,6 +425,20 @@
     return frag;
   }
 
+  /** 十二长生小标签：只标天盘干，绝对定位于该干正上方；显隐由顶栏开关控制 */
+  function makeChangShengTag(info) {
+    if (!info) return null;
+    const levelCls = info.level === '旺' ? 'cs-wang' : info.level === '衰' ? 'cs-shuai' : 'cs-ping';
+    const s = document.createElement('span');
+    s.className = `cs-tag ${levelCls}`;
+    s.textContent = info.name;
+    const palaceText = info.palace === 5 ? '中五宫（寄坤二）' : `第${info.palace}宫`;
+    s.title =
+      `十二长生 · 天盘奇仪 ${info.stem} 落${palaceText}：${info.name}（${info.level}）\n` +
+      `寄生${info.branch}${info.via_palace !== info.palace ? '（中五宫寄坤二宫）' : ''}\n${info.meaning}`;
+    return s;
+  }
+
   /** 寄宫干（中五寄坤二 / 天禽随天芮）：与天盘、地盘本宫干同排显示 */
   function makeJiToken(gan, layer) {
     const s = document.createElement('span');
@@ -438,6 +459,7 @@
 
   function applyBoardClasses() {
     el.board.classList.toggle('mode-3d', state.mode3d);
+    el.board.classList.toggle('hide-chang-sheng', !state.showChangSheng);
     el.board.classList.remove('focus-shen', 'focus-tian', 'focus-men', 'focus-di');
     if (state.focusLayer !== 'all') el.board.classList.add('focus-' + state.focusLayer);
     document.querySelectorAll('.layer-tab').forEach((btn) => {
@@ -602,6 +624,30 @@
       `口径 ${chart.meta.an_gan_rule || 'shigan-feibu-v1'}。`;
     anCard.appendChild(anRule);
     body.appendChild(anCard);
+
+    // ---- 十二长生 ----
+    const cs = data.chang_sheng || {};
+    if (cs.tian_pan || cs.di_pan || cs.an_gan) {
+      body.appendChild(secTitle('十 二 长 生'));
+      const csList = document.createElement('dl');
+      csList.className = 'kv';
+      for (const [label, info] of [
+        ['天盘干', cs.tian_pan],
+        ['地盘干', cs.di_pan],
+        ['暗干', cs.an_gan],
+      ]) {
+        if (!info) continue;
+        csList.appendChild(dt(label));
+        csList.appendChild(
+          ddGan(
+            info.name,
+            `${info.level} · 干${info.stem} 寄生${info.branch}` +
+              `${info.via_palace !== info.palace ? '（中五宫寄坤二）' : ''}：${info.meaning}`
+          )
+        );
+      }
+      body.appendChild(csList);
+    }
 
     // ---- 十干克应 ----
     body.appendChild(secTitle('十 干 克 应'));
@@ -914,7 +960,8 @@
     const modeText = state.mode3d ? '3D 层分离' : '俯视可读';
     const focusText =
       state.focusLayer === 'all' ? '四层叠加' : `聚焦${LAYER_LABEL[state.focusLayer]}`;
-    el.viewNote.textContent = `${modeText} · ${focusText} · 拖动旋转 · 点击图层可聚焦`;
+    el.viewNote.textContent =
+      `${modeText} · ${focusText} · 十二长生${state.showChangSheng ? '开' : '关'} · 拖动旋转 · 点击图层可聚焦`;
   }
 
   /* ------------------------------------------------------------------ *
@@ -941,6 +988,13 @@
       const f = ev.target.files && ev.target.files[0];
       if (f) loadJSONFile(f);
       ev.target.value = '';
+    });
+
+    $('btn-changsheng').addEventListener('click', () => {
+      state.showChangSheng = !state.showChangSheng;
+      $('btn-changsheng').setAttribute('aria-pressed', String(state.showChangSheng));
+      applyBoardClasses();
+      updateViewNote();
     });
 
     $('btn-view').addEventListener('click', () => {
@@ -1105,7 +1159,7 @@
    * ------------------------------------------------------------------ */
   /**
    * 解析 URL hash：可分享/复现视图
-   * #date=…&time=…&lng=…&lat=…&rumu=B&topic=测出行&layer=tian&view=3d&palace=8
+   * #date=…&time=…&lng=…&lat=…&rumu=B&topic=测出行&layer=tian&view=3d&cs=0&palace=8
    */
   function applyHash() {
     const raw = (location.hash || '').replace(/^#/, '');
@@ -1122,6 +1176,8 @@
     set('in-rumu', 'rumu');
     set('in-topic', 'topic');
     if (q.get('lng') || q.get('lat')) el.city.value = '__custom__';
+    if (q.get('cs') === '0') state.showChangSheng = false;
+    $('btn-changsheng').setAttribute('aria-pressed', String(state.showChangSheng));
     if (q.get('view') === '3d') {
       state.mode3d = true;
       state.rotX = -18;

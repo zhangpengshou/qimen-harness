@@ -29,7 +29,7 @@ test('浏览器产物存在且可加载', () => {
 
 test('产物导出关键 API', () => {
   const E = loadBundle();
-  for (const k of ['buildChart', 'buildChartFromGivens', 'buildDiPan', 'buildAnGan', 'getKeYing', 'trueSolarTime', 'CITIES']) {
+  for (const k of ['buildChart', 'buildChartFromGivens', 'buildDiPan', 'buildAnGan', 'getKeYing', 'changShengOf', 'trueSolarTime', 'CITIES']) {
     assert.equal(typeof E[k] === 'function' || Array.isArray(E[k]), true, `缺少导出 ${k}`);
   }
   assert.ok(E.constants && E.constants.PALACES.length === 9);

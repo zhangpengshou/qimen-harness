@@ -93,6 +93,18 @@ function ganLine(gan, extra, label) {
   return `${extra} ${gan || '—'}（含${label} ${extra}）`;
 }
 
+/** 十二长生：天盘干 / 地盘干 / 暗干落本宫的旺衰摘要 */
+function changShengLine(p) {
+  const cs = p.chang_sheng || {};
+  const one = (label, c) =>
+    c
+      ? `${label}${c.stem} ${c.name}（${c.level}，寄生${c.branch}${c.via_palace !== c.palace ? '，中五寄坤二' : ''}）`
+      : null;
+  return [one('天盘', cs.tian_pan), one('地盘', cs.di_pan), one('暗干', cs.an_gan)]
+    .filter(Boolean)
+    .join('；') || '—';
+}
+
 /** 某宫的「九星」描述（芮禽合并 + 暗干） */
 function starLine(p) {
   const isRui = p.star === '天芮';
@@ -170,6 +182,7 @@ function buildAiAnalysisText(chart) {
         `- **寄宫说明**：天禽星寄坤二宫、随天芮同行；中五宫不列八门、八神与九星，天盘奇仪取本宫地盘奇仪。` +
           `中宫之干 ${jiGan} 寄至坤二宫地盘与芮禽宫天盘，两处按「寄宫干在前、本宫干在后」显示双干。`
       );
+      lines.push(`- **十二长生**：${changShengLine(p)}`);
     } else {
       lines.push(`- **八神**：${p.god || '—'}`);
       lines.push(`- **九星**：${starLine(p)}`);
@@ -182,6 +195,7 @@ function buildAiAnalysisText(chart) {
           ? `${ky.tian_gan}+${ky.di_gan} - ${ky.name}（${ky.meaning}）`
           : '本宫无十干克应';
       lines.push(`- **十干克应**：${kyText}`);
+      lines.push(`- **十二长生**：${changShengLine(p)}`);
     }
 
     const tags = statusTags(p);
@@ -206,6 +220,11 @@ function buildAiAnalysisText(chart) {
   lines.push('  - 门迫：八门五行克落宫五行。');
   lines.push('  - 空亡：时旬空亡之地支所映射之宫。');
   lines.push('  - 马星：时支三合驿马位，主变动、出行。');
+  lines.push(
+    '- **十二长生口径**：十干各有长生地支，阳干顺行、阴干逆行；四正宫各辖一支，' +
+      '四隅宫按「阳干取阳支、阴干取阴支」择一，中五宫寄坤二宫判定。' +
+      '旺＝长生/临官/帝旺，平＝沐浴/冠带/胎/养，衰＝衰/病/死/墓/绝；用于衡量天盘干、地盘干、暗干落宫之能量强弱。'
+  );
   const special = detectSpecialPatterns(chart);
   if (special.length) lines.push(`- **特殊格局**：${special.join('；')}`);
   lines.push('');

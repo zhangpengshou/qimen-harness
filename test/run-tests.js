@@ -20,6 +20,7 @@ const files = [
   'ke_ying.test.js',
   'solar_time.test.js',
   'an_gan.test.js',
+  'chang_sheng.test.js',
   'ai_text.test.js',
   'qimen.test.js',
   'bundle.test.js',
