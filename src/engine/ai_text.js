@@ -87,6 +87,12 @@ function detectSpecialPatterns(chart) {
   return out;
 }
 
+/** 双干：寄宫干在前、本宫干在后，并注明寄干来源 */
+function ganLine(gan, extra, label) {
+  if (!extra) return gan || '—';
+  return `${extra} ${gan || '—'}（含${label} ${extra}）`;
+}
+
 /** 某宫的「九星」描述（芮禽合并 + 暗干） */
 function starLine(p) {
   const isRui = p.star === '天芮';
@@ -110,6 +116,7 @@ function buildAiAnalysisText(chart) {
     throw new Error('buildAiAnalysisText: 需要合法的排盘 JSON');
   }
   const m = chart.meta;
+  const jiGan = (chart.palaces.find((x) => x.index === 5) || {}).di_pan_qi_yi || '—';
   const lines = [];
 
   /* ---------------- 一、基础排盘信息 ---------------- */
@@ -149,23 +156,26 @@ function buildAiAnalysisText(chart) {
 
     if (p.index === 5) {
       lines.push(`- **八神**：无（中五宫不列八神）`);
-      lines.push(`- **九星**：${starLine(p)}`);
+      lines.push(
+        `- **九星**：无（中五宫不单列九星，天禽寄坤二宫、随天芮同行）${p.an_gan ? `；暗干：${p.an_gan}` : ''}`
+      );
       lines.push(`- **八门**：无（中五宫无门）`);
-      lines.push(`- **天盘奇仪**：${p.tian_pan_qi_yi || '—'}`);
-      lines.push(`- **地盘奇仪**：${p.di_pan_qi_yi || '—'}`);
+      lines.push(`- **天盘奇仪**：${ganLine(p.tian_pan_qi_yi, p.tian_pan_qi_yi_extra, '天禽寄宫干')}`);
+      lines.push(`- **地盘奇仪**：${ganLine(p.di_pan_qi_yi, p.di_pan_qi_yi_extra, '中五寄宫干')}`);
       const ky = p.ke_ying || {};
       lines.push(
         `- **十干克应**：${ky.name && ky.name !== '—' ? `${ky.tian_gan}+${ky.di_gan} - ${ky.name}（${ky.meaning}）` : '中五宫不列十干克应'}`
       );
       lines.push(
-        `- **寄宫说明**：天禽星寄坤二宫、随局不转；中五宫不列八门与八神，天盘奇仪取本宫地盘奇仪。`
+        `- **寄宫说明**：天禽星寄坤二宫、随天芮同行；中五宫不列八门、八神与九星，天盘奇仪取本宫地盘奇仪。` +
+          `中宫之干 ${jiGan} 寄至坤二宫地盘与芮禽宫天盘，两处按「寄宫干在前、本宫干在后」显示双干。`
       );
     } else {
       lines.push(`- **八神**：${p.god || '—'}`);
       lines.push(`- **九星**：${starLine(p)}`);
       lines.push(`- **八门**：${p.door || '—'}`);
-      lines.push(`- **天盘奇仪**：${p.tian_pan_qi_yi || '—'}`);
-      lines.push(`- **地盘奇仪**：${p.di_pan_qi_yi || '—'}`);
+      lines.push(`- **天盘奇仪**：${ganLine(p.tian_pan_qi_yi, p.tian_pan_qi_yi_extra, '天禽寄宫干')}`);
+      lines.push(`- **地盘奇仪**：${ganLine(p.di_pan_qi_yi, p.di_pan_qi_yi_extra, '中五寄宫干')}`);
       const ky = p.ke_ying || {};
       const kyText =
         ky.name && ky.name !== '—'

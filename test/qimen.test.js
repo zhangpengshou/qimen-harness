@@ -143,20 +143,23 @@ test('端到端：2002-04-07 08:00 北京 —— 拆补得清明下元阳遁七�
   assert.equal(m.true_solar_time.slice(0, 16), '2002-04-07T07:43');
   assert.ok(m.true_solar_correction.total_offset_minutes < -15);
 
+  // 值使生门自艮8顺数 6 宫（中五宫占一位）落中五宫、寄坤二宫，
+  // 故八门盘以坤2为锚点整体旋转：值使生门在坤2。
   assertEightPalaces(
     chart,
     {
-      1: ['壬', '辛', '天芮', '伤门', '白虎'],
-      2: ['癸', '壬', '天冲', '开门', '螣蛇'],
-      3: ['乙', '癸', '天心', '景门', '九地'],
-      4: ['辛', '丁', '天蓬', '死门', '九天'],
-      6: ['庚', '乙', '天英', '生门', '六合'],
-      7: ['丁', '戊', '天辅', '休门', '太阴'],
-      8: ['戊', '己', '天柱', '杜门', '玄武'],
-      9: ['己', '庚', '天任', '惊门', '值符'],
+      1: ['壬', '辛', '天芮', '景门', '白虎'],
+      2: ['癸', '壬', '天冲', '生门', '螣蛇'],
+      3: ['乙', '癸', '天心', '惊门', '九地'],
+      4: ['辛', '丁', '天蓬', '开门', '九天'],
+      6: ['庚', '乙', '天英', '杜门', '六合'],
+      7: ['丁', '戊', '天辅', '伤门', '太阴'],
+      8: ['戊', '己', '天柱', '死门', '玄武'],
+      9: ['己', '庚', '天任', '休门', '值符'],
     },
     '2002 拆补阳遁7局'
   );
+  assert.equal(m.zhi_shi.palace, 2);
 });
 
 test('端到端：2026-11-04 14:30 北京 —— 霜降上元阴遁五局', () => {
@@ -184,6 +187,81 @@ test('端到端：2026-11-04 14:30 北京 —— 霜降上元阴遁五局', () =
   assert.equal(m.zhi_fu.yi, '壬');
   assert.equal(m.zhi_fu.star, '天蓬');
   assert.equal(m.zhi_fu.door, '休门');
+});
+
+test('附图回归：2026-10-09 01:57 北京 —— 阴遁9局，值使惊门落坤二，八门与暗干逐宫吻合', () => {
+  const chart = buildChart({
+    datetime: { year: 2026, month: 10, day: 9, hour: 1, minute: 57 },
+    location: beijing,
+  });
+  const m = chart.meta;
+  assert.equal(m.si_zhu.day, '丙辰');
+  assert.equal(m.si_zhu.hour, '己丑');
+  assert.equal(m.ju_label, '阴遁9局');
+  assert.equal(m.xun_head, '甲申');
+  assert.equal(m.zhi_fu.star, '天柱');
+  assert.equal(m.zhi_shi.door, '惊门');
+  assert.equal(m.zhi_shi.palace, 2, '值使惊门应落坤二宫');
+  assert.deepEqual(
+    Object.fromEntries(chart.palaces.map((p) => [p.index, p.door])),
+    {
+      1: '生门', 2: '惊门', 3: '杜门', 4: '景门', 5: null,
+      6: '休门', 7: '开门', 8: '伤门', 9: '死门',
+    }
+  );
+  assert.deepEqual(
+    Object.fromEntries(chart.palaces.map((p) => [p.index, p.an_gan])),
+    { 1: '庚', 2: '己', 3: '戊', 4: '乙', 5: '丙', 6: '丁', 7: '癸', 8: '壬', 9: '辛' }
+  );
+  assert.equal(m.an_gan_start.palace, 2);
+  assert.equal(m.an_gan_start.stem, '己');
+});
+
+test('中五寄坤二 / 天禽随天芮：三组权威盘例的「双天干」逐宫吻合', () => {
+  const cases = [
+    {
+      label: '2026-11-05 21:49 阴遁5局（芮禽在坤二）',
+      dt: { year: 2026, month: 11, day: 5, hour: 21, minute: 49 },
+      jiGan: '戊', kun2Di: '辛', ruiPalace: 2, ruiTian: '辛',
+    },
+    {
+      label: '2010-10-10 10:10 阴遁3局（芮禽在兑七）',
+      dt: { year: 2010, month: 10, day: 10, hour: 10, minute: 10 },
+      jiGan: '丙', kun2Di: '己', ruiPalace: 7, ruiTian: '己',
+    },
+    {
+      label: '2011-11-11 11:11 阴遁9局（芮禽在艮八）',
+      dt: { year: 2011, month: 11, day: 11, hour: 11, minute: 11 },
+      jiGan: '壬', kun2Di: '丙', ruiPalace: 8, ruiTian: '丙',
+    },
+  ];
+  for (const c of cases) {
+    const chart = buildChart({ datetime: c.dt, location: beijing });
+    assert.equal(chart.meta.ji_gong.stem, c.jiGan, c.label);
+    assert.equal(chart.meta.ji_gong.from_palace, 5);
+    assert.equal(chart.meta.ji_gong.to_palace, 2);
+    assert.equal(palaceOf(chart, 5).di_pan_qi_yi, c.jiGan);
+
+    // 坤二宫地盘：中宫寄干 + 本宫干（如「丙 己」「壬 丙」「戊 辛」）
+    const kun2 = palaceOf(chart, 2);
+    assert.equal(kun2.di_pan_qi_yi, c.kun2Di, c.label);
+    assert.equal(kun2.di_pan_qi_yi_extra, c.jiGan, `${c.label} 坤二地盘缺寄宫干`);
+
+    // 芮禽宫天盘：天禽携中宫干 + 天芮携本位干
+    const rui = palaceOf(chart, c.ruiPalace);
+    assert.equal(rui.star, '天芮', c.label);
+    assert.equal(rui.tian_pan_qi_yi, c.ruiTian, c.label);
+    assert.equal(rui.tian_pan_qi_yi_extra, c.jiGan, `${c.label} 芮禽宫天盘缺寄宫干`);
+
+    // 双干只出现在这两处，其余宫位不得凭空多干
+    for (const p of chart.palaces) {
+      if (p.index !== 2) assert.equal(p.di_pan_qi_yi_extra, null, `宫${p.index} 不应有地盘寄干`);
+      if (p.index !== c.ruiPalace) assert.equal(p.tian_pan_qi_yi_extra, null, `宫${p.index} 不应有天盘寄干`);
+    }
+    // 中五宫无门无神（盘面亦不单列天禽星，见 web/app.js）
+    assert.equal(palaceOf(chart, 5).god, null);
+    assert.equal(palaceOf(chart, 5).door, null);
+  }
 });
 
 /* ================================================================== *

@@ -8,7 +8,7 @@
  *   4. 地盘三奇六仪（阳顺阴逆）
  *   5. 值符（旬首仪）、值使（旬首本位门）
  *   6. 天盘：值符随时干落宫，九星/天盘奇仪顺时针整体旋转
- *   7. 八门：值使随时宫（按旬内时数）落宫，八门顺时针布列
+ *   7. 八门：值使随时宫（按旬内时数）落宫，八门沿后天环整体旋转
  *   8. 八神：值符神随天盘值符，阳遁顺布、阴遁逆布
  *   9. 四害（击刑/入墓/门迫/刑+墓）、空亡、马星、内外盘
  *  10. 单宫十干克应
@@ -66,10 +66,13 @@ const DOOR_AT_HOME = { 1: '休', 8: '生', 3: '伤', 4: '杜', 9: '景', 2: '死
 const DOOR_RING = RING;
 
 /**
- * 值使数宫环（洛书宫序，跳过中五宫）：1→2→3→4→6→7→8→9→1
- * 「值使随时支」自旬首宫起、阳顺阴逆逐宫数至时支宫，用此序。
+ * 值使数宫序（洛书宫序，**含中五宫**）：1→2→…→9→1
+ * 「值使随时支」自旬首宫起、阳顺阴逆按旬内时数逐宫数至时支宫。
+ * 中五宫必须参与计数（占一位）：若跳过它，凡是数宫路径跨中宫的局，
+ * 值使门都会整体偏移一宫，八门盘随之全盘错位。
+ * 若最终落在中五宫，按「中五寄坤二」把值使门寄到坤二宫。
  */
-const SHI_RING = [1, 2, 3, 4, 6, 7, 8, 9];
+const SHI_RING = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 const SHI_RING_POS = Object.fromEntries(SHI_RING.map((p, i) => [p, i]));
 
 function shiRingShift(palace, steps, dir) {
@@ -135,16 +138,23 @@ function buildDiPan(ju, yinYang) {
 /**
  * 暗干（隐干）序列
  *
- * 规则（默认口径 'shigan-feibu-v1'）：
- *   以「时干」起于其时干落宫，循奇仪序 戊→己→庚→辛→壬→癸→丁→丙→乙，
+ * 规则（口径 'shigan-feibu-v1'）：
+ *   以「时干」加临「值使门落宫」为起点，循奇仪序 戊→己→庚→辛→壬→癸→丁→丙→乙，
  *   沿洛书宫序飞布九宫——阳遁顺飞（1→2→…→9）、阴遁逆飞（9→8→…→1），
  *   中五宫亦占一位（不跳过）。
+ *   注意：起点是值使门所落之宫，而非时干在地盘的落宫（两者常不同宫）。
  *
- * 校验盘例（阴遁二局，时干己落离9，逆飞）：
- *   离9己 → 艮8庚 → 兑7辛 → 乾6壬 → 中5癸 → 巽4丁 → 震3丙 → 坤2乙 → 坎1戊
- * 与公开盘例「暗干完整序列」一致。
+ *   **伏吟归中**：当「值使门落宫」与「时干落宫」重合（值符星、值使门俱归本位，
+ *   天盘＝地盘）时，若仍从该宫起布，九个暗干会与地盘奇仪逐宫完全重合、失去独立意义。
+ *   此类伏吟局改以「中五宫」为起点起飞（起干仍为时干），见 layoutPalaces。
  *
- * @param {{startPalace:number, startStem:string, dir:1|-1}} g
+ * 校验盘例 A（2026-10-09 01:57 阴遁九局，值使惊门落坤2，时干己，逆飞）：
+ *   坤2己 → 坎1庚 → 离9辛 → 艮8壬 → 兑7癸 → 乾6丁 → 中5丙 → 巽4乙 → 震3戊
+ * 校验盘例 B（2026-11-05 21:49 阴遁五局·伏吟，值使景门落离9＝时干癸落宫，逆飞）：
+ *   中5癸 → 巽4丁 → 震3丙 → 坤2乙 → 坎1戊 → 离9己 → 艮8庚 → 兑7辛 → 乾6壬
+ * 两者均与权威盘例逐宫一致。
+ *
+ * @param {{startPalace:number, startStem:string, dir:1|-1}} g startPalace = 暗干起点宫
  * @returns {Object<number,string>} 宫位 → 暗干
  */
 const AN_GAN_ORDER = ['戊', '己', '庚', '辛', '壬', '癸', '丁', '丙', '乙'];
@@ -224,10 +234,12 @@ function layoutPalaces({ day, hour, ju, yinYang, ruMuKouJing = 'A' }) {
 
   /* ---------- 八门（值使随时支） ---------- */
   const hourSteps = xun.posInXun; // 旬内时序：甲X=0 … 癸X=9
-  // 值使门落宫：自旬首本位宫起，沿洛书宫序每时辰进一宫（阳顺阴逆）
-  const zhiShiPalace = shiRingShift(zhiFuPalace, hourSteps, dir);
-  // 八门盘刚性旋转：值使门（本位宫 zhiFuPalace）移至值使宫 zhiShiPalace。
-  // 旋转量 = 值使宫环位 − 旬首本位环位；沿后天环「逆转」布列（与八神相反）。
+  // 值使门落宫：自旬首本位宫起，沿洛书九宫序每时辰进一宫（阳顺阴逆，中五宫占一位）
+  let zhiShiPalace = shiRingShift(zhiFuPalace, hourSteps, dir);
+  // 中五宫无门：值使门落中五宫时寄坤二宫（门盘锚点必须落在后天环上）
+  if (zhiShiPalace === 5) zhiShiPalace = 2;
+  // 八门盘刚性旋转：值使门（本位宫 zhiFuPalace）移至值使宫 zhiShiPalace，
+  // 其余门沿后天环保持相对次序（旋转量 = 值使宫环位 − 旬首本位环位）。
   const doorStep = (((RING_POS[zhiShiPalace] - RING_POS[zhiFuPalace]) % 8) + 8) % 8;
   const doorAt = { 5: null };
   for (const p of RING) {
@@ -241,15 +253,27 @@ function layoutPalaces({ day, hour, ju, yinYang, ruMuKouJing = 'A' }) {
     godAt[ringShift(hourStemPalace, i, dir)] = GODS[i];
   }
 
-  /* ---------- 暗干（时干飞布） ---------- */
-  // 时干落宫为起点，循奇仪序阳顺阴逆布九宫（中五宫亦占一位）
-  const anGanAt = buildAnGan({ startPalace: hourStemPalace, startStem: hourStem, dir });
+  /* ---------- 暗干（时干加临值使门飞布；伏吟归中） ---------- */
+  // 起点 = 值使门落宫（不是时干在地盘的落宫），起干 = 时干；
+  // 循奇仪序阳顺阴逆布九宫（中五宫亦占一位）。
+  // 伏吟局（值使宫 === 时干落宫）时暗干会与地盘逐宫重合，改由中五宫起飞。
+  const anGanStartIsFuYin = zhiShiPalace === hourStemPalace;
+  const anGanStartPalace = anGanStartIsFuYin ? 5 : zhiShiPalace;
+  const anGanAt = buildAnGan({ startPalace: anGanStartPalace, startStem: hourStem, dir });
 
   /* ---------- 空亡 / 马星 ---------- */
   const kongBranches = xun.voidBranches;
   const kongPalaces = [...new Set(kongBranches.map((b) => BRANCH_PALACE[b]))];
   const horseBranch = HORSE_BY_BRANCH[hour.branch];
   const horsePalace = BRANCH_PALACE[horseBranch];
+
+  /* ---------- 中五寄坤二 / 天禽寄干（双天干） ---------- */
+  // 中五宫无门无神，天禽星寄坤二宫并随天芮同行，因此有两处要显示「双天干」：
+  //   · 坤二宫【地盘】：本宫奇仪 + 中五宫之地盘奇仪（中宫寄干）；
+  //   · 芮禽合宫【天盘】：天芮携来之本位干 + 天禽携来之中宫干。
+  // 顺序按专业排盘写法：寄宫干在前、本宫干在后（如「戊 辛」「壬 丙」「丙 己」）。
+  const jiGongGan = diPan[5];
+  const ruiPalace = Number(Object.keys(starAt).find((k) => starAt[k] === '天芮'));
 
   /* ---------- 组装九宫 ---------- */
   const neiSet = new Set(yinYang === 'yang' ? NEI_PALACES_YANG : [9, 2, 7, 6]);
@@ -258,6 +282,8 @@ function layoutPalaces({ day, hour, ju, yinYang, ruMuKouJing = 'A' }) {
     const diGan = diPan[p.index];
     const doorKey = doorAt[p.index];
     const palaceEl = p.element;
+    const tianPanExtra = p.index === ruiPalace ? jiGongGan : null;
+    const diPanExtra = p.index === 2 ? jiGongGan : null;
 
     // 四害：击刑 / 入墓 均以「天盘奇仪」为对象；门迫以「门」为对象
     const jiXingActive = JI_XING[tianGan] === p.index;
@@ -277,6 +303,9 @@ function layoutPalaces({ day, hour, ju, yinYang, ruMuKouJing = 'A' }) {
       nei_wai: p.index === 5 ? 'zhong' : neiSet.has(p.index) ? 'nei' : 'wai',
       tian_pan_qi_yi: tianGan || null,
       di_pan_qi_yi: diGan || null,
+      // 寄宫附加干：仅芮禽宫（天盘）与坤二宫（地盘）非空；四害/克应仍只按上面的本宫干判定
+      tian_pan_qi_yi_extra: tianPanExtra,
+      di_pan_qi_yi_extra: diPanExtra,
       star: starAt[p.index] || null,
       // 芮禽合宫：天禽随天芮同行，展示时合并为「芮禽」
       star_display: starAt[p.index] === '天芮' ? '芮禽' : starAt[p.index] || null,
@@ -309,8 +338,10 @@ function layoutPalaces({ day, hour, ju, yinYang, ruMuKouJing = 'A' }) {
     horsePalace,
     horseBranch,
     anGanAt,
-    anGanStart: hourStemPalace,
+    anGanStart: anGanStartPalace,
+    anGanStartIsFuYin,
     anGanStem: hourStem,
+    jiGongGan,
   };
 }
 
@@ -422,7 +453,9 @@ function buildChart(options) {
       an_gan_start: {
         palace: laid.anGanStart,
         stem: laid.anGanStem,
+        source: laid.anGanStartIsFuYin ? 'zhong_gong_fu_yin' : 'zhi_shi_palace',
       },
+      ji_gong: { from_palace: 5, to_palace: 2, stem: laid.jiGongGan, rule: 'zhong5-ji-kun2' },
       true_solar_correction: {
         equation_of_time_minutes: round(st.equationOfTimeMinutes, 3),
         longitude_offset_minutes: round(st.longitudeOffsetMinutes, 3),
@@ -491,7 +524,12 @@ function buildChartFromGivens({ dayGanzhi, hourGanzhi: hourText, ju, yinYang, ru
       zhi_shi: { door: laid.zhiShi.door, palace: laid.zhiShi.palace },
       ma_xing_branch: laid.horseBranch,
       an_gan_rule: AN_GAN_RULE,
-      an_gan_start: { palace: laid.anGanStart, stem: laid.anGanStem },
+      an_gan_start: {
+        palace: laid.anGanStart,
+        stem: laid.anGanStem,
+        source: laid.anGanStartIsFuYin ? 'zhong_gong_fu_yin' : 'zhi_shi_palace',
+      },
+      ji_gong: { from_palace: 5, to_palace: 2, stem: laid.jiGongGan, rule: 'zhong5-ji-kun2' },
       true_solar_correction: { equation_of_time_minutes: 0, longitude_offset_minutes: 0, total_offset_minutes: 0 },
       note: '由外部给定四柱与局数直接布盘（用于校核）',
     },

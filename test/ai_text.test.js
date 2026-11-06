@@ -128,6 +128,19 @@ test('AI 文本：中五宫有寄宫说明且标注无门无神', () => {
   assert.match(block, /天禽星寄坤二宫/);
 });
 
+test('AI 文本：中五寄宫产生的双干写入坤二地盘与芮禽天盘', () => {
+  const c = buildChart({
+    datetime: { year: 2010, month: 10, day: 10, hour: 10, minute: 10 },
+    location: beijing,
+  });
+  const t = buildAiAnalysisText(c);
+  // 阴遁3局：中宫干丙寄坤二；坤二地盘己、兑七芮禽天盘己
+  assert.match(t, /- \*\*地盘奇仪\*\*：丙 己（含中五寄宫干 丙）/);
+  assert.match(t, /- \*\*天盘奇仪\*\*：丙 己（含天禽寄宫干 丙）/);
+  assert.match(t, /中宫之干 丙 寄至坤二宫地盘与芮禽宫天盘/);
+  assert.match(t, /- \*\*九星\*\*：无（中五宫不单列九星/);
+});
+
 test('AI 文本：图例含内外盘划分与四害说明', () => {
   assert.match(text, /内盘为 9、2、7、6 宫，外盘为 8、3、4、1 宫/);
   for (const k of ['击刑', '入墓', '门迫', '空亡', '马星']) {

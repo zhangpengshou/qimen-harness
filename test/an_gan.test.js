@@ -3,20 +3,21 @@
 /**
  * an_gan.test.js — 暗干（隐干）算法验收
  *
- * 口径：时干起于时干落宫，循奇仪序「戊己庚辛壬癸丁丙乙」，
+ * 口径：时干加临「值使门落宫」为起点，循奇仪序「戊己庚辛壬癸丁丙乙」，
  *       阳遁顺飞（洛书 1→2→…→9）、阴遁逆飞（9→8→…→1），九宫皆占一位。
+ *       起点不是「时干在地盘的落宫」（那是旧实现，整体错位）。
  *
- * 权威盘例（阴遁二局，时干己落离九，逆飞）：
- *   离九己 → 艮八庚 → 兑七辛 → 乾六壬 → 中五癸 → 巽四丁 → 震三丙 → 坤二乙 → 坎一戊
+ * 权威盘例（2026-10-09 01:57 阴遁九局，值使惊门落坤二，时干己，逆飞）：
+ *   坤二己 → 坎一庚 → 离九辛 → 艮八壬 → 兑七癸 → 乾六丁 → 中五丙 → 巽四乙 → 震三戊
  */
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { buildAnGan, buildChart, AN_GAN_ORDER, AN_GAN_RULE } = require('../src/engine/qimen');
+const { buildAnGan, buildChart, buildChartFromGivens, AN_GAN_ORDER, AN_GAN_RULE } = require('../src/engine/qimen');
 
 const beijing = { name: '北京', lng: 116.4074, lat: 39.9042 };
 
-test('暗干：阴遁盘例（时干己落离九）序列与公开盘例一致', () => {
+test('暗干：阴遁逆飞（洛书 9→8→…→1）按奇仪序逐宫推进', () => {
   const seq = buildAnGan({ startPalace: 9, startStem: '己', dir: -1 });
   assert.deepEqual(seq, {
     9: '己',
@@ -29,6 +30,57 @@ test('暗干：阴遁盘例（时干己落离九）序列与公开盘例一致',
     2: '乙',
     1: '戊',
   });
+});
+
+test('暗干：权威盘例（阴遁九局，值使惊门落坤二，时干己）整盘逐宫吻合', () => {
+  const chart = buildChartFromGivens({ dayGanzhi: '丙辰', hourGanzhi: '己丑', ju: 9, yinYang: 'yin' });
+  assert.equal(chart.meta.zhi_shi.palace, 2);
+  assert.equal(chart.meta.an_gan_start.palace, 2, '暗干起点必须是值使门落宫');
+  assert.equal(chart.meta.an_gan_start.stem, '己');
+  assert.deepEqual(
+    Object.fromEntries(chart.palaces.map((p) => [p.index, p.an_gan])),
+    { 1: '庚', 2: '己', 3: '戊', 4: '乙', 5: '丙', 6: '丁', 7: '癸', 8: '壬', 9: '辛' }
+  );
+});
+
+test('暗干：伏吟局（2026-11-05 21:49，值使宫＝时干落宫）归中五宫起飞', () => {
+  const chart = buildChart({
+    datetime: { year: 2026, month: 11, day: 5, hour: 21, minute: 49 },
+    location: beijing,
+  });
+  const m = chart.meta;
+  assert.equal(m.zhi_shi.palace, 9);
+  assert.equal(m.an_gan_start.palace, 5, '伏吟时暗干起点应归中五宫');
+  assert.equal(m.an_gan_start.stem, '癸');
+  assert.equal(m.an_gan_start.source, 'zhong_gong_fu_yin');
+  // 中5癸 → 巽4丁 → 震3丙 → 坤2乙 → 坎1戊 → 离9己 → 艮8庚 → 兑7辛 → 乾6壬
+  assert.deepEqual(
+    Object.fromEntries(chart.palaces.map((p) => [p.index, p.an_gan])),
+    { 1: '戊', 2: '乙', 3: '丙', 4: '丁', 5: '癸', 6: '壬', 7: '辛', 8: '庚', 9: '己' }
+  );
+  assert.equal(new Set(chart.palaces.map((p) => p.an_gan)).size, 9, '九干应各出现一次');
+});
+
+test('暗干：非伏吟两盘仍起于值使门落宫，逐宫与权威盘例一致', () => {
+  const cases = [
+    {
+      dt: { year: 2010, month: 10, day: 10, hour: 10, minute: 10 },
+      start: 4,
+      seq: { 1: '戊', 2: '乙', 3: '丙', 4: '丁', 5: '癸', 6: '壬', 7: '辛', 8: '庚', 9: '己' },
+    },
+    {
+      dt: { year: 2011, month: 11, day: 11, hour: 11, minute: 11 },
+      start: 9,
+      seq: { 1: '辛', 2: '庚', 3: '己', 4: '戊', 5: '乙', 6: '丙', 7: '丁', 8: '癸', 9: '壬' },
+    },
+  ];
+  for (const c of cases) {
+    const chart = buildChart({ datetime: c.dt, location: beijing });
+    assert.equal(chart.meta.an_gan_start.source, 'zhi_shi_palace');
+    assert.equal(chart.meta.an_gan_start.palace, c.start);
+    assert.equal(chart.meta.an_gan_start.palace, chart.meta.zhi_shi.palace);
+    assert.deepEqual(Object.fromEntries(chart.palaces.map((p) => [p.index, p.an_gan])), c.seq);
+  }
 });
 
 test('暗干：阳遁顺飞（时干戊落坎一）逐宫推进', () => {
@@ -78,8 +130,10 @@ test('暗干：排盘结果写入每个宫位与 meta，且起点与时干一致
   assert.equal(m.an_gan_rule, AN_GAN_RULE);
   assert.ok(m.an_gan_start, 'meta 缺少 an_gan_start');
   assert.ok(Number.isInteger(m.an_gan_start.palace));
-  // 时干丁 落宫（阴遁5局地盘丁在艮8）
+  // 时干丁；起点为值使门落宫（此局值使休门落兑7），而非地盘丁所在的艮8
   assert.equal(m.an_gan_start.stem, m.si_zhu.hour[0]);
+  assert.equal(m.an_gan_start.palace, m.zhi_shi.palace);
+  assert.equal(m.an_gan_start.palace, 7);
   const start = chart.palaces.find((p) => p.index === m.an_gan_start.palace);
   assert.equal(start.an_gan, m.an_gan_start.stem);
   // 每宫都有暗干，且九个天干齐全
@@ -89,11 +143,12 @@ test('暗干：排盘结果写入每个宫位与 meta，且起点与时干一致
     assert.equal(p.an_gan_rule, AN_GAN_RULE);
   }
   assert.equal(new Set(chart.palaces.map((p) => p.an_gan)).size, 9);
-  // 阴遁逆飞：艮8(丁) 的下一宫为洛书 7（兑7）→ 丙；再 6（乾6）→ 乙
+  // 阴遁逆飞：兑7(丁) → 乾6(丙) → 中5(乙) → 巽4(戊)
   const byIdx = Object.fromEntries(chart.palaces.map((p) => [p.index, p]));
-  assert.equal(byIdx[8].an_gan, '丁');
-  assert.equal(byIdx[7].an_gan, '丙');
-  assert.equal(byIdx[6].an_gan, '乙');
+  assert.equal(byIdx[7].an_gan, '丁');
+  assert.equal(byIdx[6].an_gan, '丙');
+  assert.equal(byIdx[5].an_gan, '乙');
+  assert.equal(byIdx[4].an_gan, '戊');
 });
 
 test('芮禽合宫：天芮所在宫合并展示为「芮禽」，其余星名不变', () => {
