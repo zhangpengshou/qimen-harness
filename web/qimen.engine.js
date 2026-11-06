@@ -2,7 +2,7 @@
  * qimen.engine.js — 自动生成，请勿手改。
  * 源码：src/engine/*.js（CommonJS），由 scripts/build-browser-bundle.js 生成。
  * 挂载：window.QimenEngine
- * 生成时间：2026-11-06T06:01:32.966Z
+ * 生成时间：2026-11-06T08:37:32.578Z
  */
 (function (global) {
   'use strict';
@@ -929,6 +929,141 @@ Object.assign(module.exports, {
 
 });
 
+define('chang_sheng', function (module, exports, require) {
+/**
+ * chang_sheng.js — 十二长生（天干落宫的能量旺衰）
+ *
+ * 口径：
+ *   1. 十干各有「长生」地支（火土同宫：丙戊长生寅、丁己长生酉）。
+ *   2. 阳干顺行、阴干逆行，按 长生→沐浴→冠带→临官→帝旺→衰→病→死→墓→绝→胎→养 布十二地支。
+ *   3. 十二地支寄九宫沿用 constants.js 的 BRANCH_PALACE：
+ *      四正宫各辖一支；四隅宫各辖两支，按「阳干取阳支、阴干取阴支」择一，
+ *      使每个干在每宫都有唯一确定的长生状态。
+ *   4. 中五宫无地支，按本插件「中五寄坤二」口径寄坤二宫判定（via_palace=2）。
+ *
+ * 用途：衡量天盘奇仪 / 地盘奇仪 / 暗干落宫时的旺衰，供断局时判能量强弱。
+ */
+
+const { BRANCH_PALACE } = require('constants');
+
+/** 十二长生次序 */
+const STAGES = ['长生', '沐浴', '冠带', '临官', '帝旺', '衰', '病', '死', '墓', '绝', '胎', '养'];
+
+const BRANCHES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
+const BRANCH_INDEX = Object.fromEntries(BRANCHES.map((b, i) => [b, i]));
+
+const YANG_STEMS = ['甲', '丙', '戊', '庚', '壬'];
+const YANG_STEM_SET = new Set(YANG_STEMS);
+const YANG_BRANCH_SET = new Set(['子', '寅', '辰', '午', '申', '戌']);
+
+/** 十干长生地支（甲隐于六仪，盘面不单独出现，但保留以完整） */
+const START_BRANCH = {
+  甲: '亥',
+  乙: '午',
+  丙: '寅',
+  丁: '酉',
+  戊: '寅',
+  己: '酉',
+  庚: '巳',
+  辛: '子',
+  壬: '申',
+  癸: '卯',
+};
+
+/** 九宫 → 所辖地支（中五宫无地支） */
+const PALACE_BRANCHES = (() => {
+  const out = {};
+  for (const [branch, palace] of Object.entries(BRANCH_PALACE)) {
+    if (!out[palace]) out[palace] = [];
+    out[palace].push(branch);
+  }
+  return out;
+})();
+
+/** 旺衰三级：旺（气盛） / 平（过渡） / 衰（气弱） */
+const LEVEL = {
+  长生: '旺',
+  沐浴: '平',
+  冠带: '平',
+  临官: '旺',
+  帝旺: '旺',
+  衰: '衰',
+  病: '衰',
+  死: '衰',
+  墓: '衰',
+  绝: '衰',
+  胎: '平',
+  养: '平',
+};
+
+const MEANING = {
+  长生: '气初生而渐长，主生发、起步、后劲足；宜开端、宜渐进。',
+  沐浴: '气未定而多波动，主犹疑、反复、桃花；忌冒进与重大决断。',
+  冠带: '气渐成形，主成长、修饰、崭露头角；利学习整备。',
+  临官: '气正盛而可用，主得位、有实权、可任事；利求官谋事。',
+  帝旺: '气至极盛，主强旺显达，然盛极将衰；利进取，忌过满。',
+  衰: '盛极而退，主守成、力不从心；宜收敛，不宜新谋。',
+  病: '气弱而病，主隐患、疲敝、拖延；事宜缓、宜调理。',
+  死: '气近于静，主停滞、终结、缺乏生机；宜止不宜进。',
+  墓: '气藏入墓，主收藏、隐匿、受困；利藏匿归档，忌张扬。',
+  绝: '气断而将续，主隔绝、了结、转折；旧事已终，新机未萌。',
+  胎: '气复结胎，主孕育、萌芽、暗中成形；利筹备，尚未可动。',
+  养: '气得滋养，主休养、蓄势、待时；宜积累，待旺而动。',
+};
+
+/**
+ * 判定某天干落某宫的十二长生状态。
+ * @param {string} stem 天干（甲乙丙丁戊己庚辛壬癸）
+ * @param {number} palace 宫位 1..9
+ * @returns {{stem:string,palace:number,via_palace:number,branch:string,name:string,stage:number,level:string,meaning:string}|null}
+ */
+function changShengOf(stem, palace) {
+  if (!stem || !START_BRANCH[stem]) return null;
+  const viaPalace = palace === 5 ? 2 : palace;
+  const candidates = PALACE_BRANCHES[viaPalace];
+  if (!candidates || !candidates.length) return null;
+
+  const isYang = YANG_STEM_SET.has(stem);
+  let branch = candidates[0];
+  if (candidates.length > 1) {
+    branch = candidates.find((b) => YANG_BRANCH_SET.has(b) === isYang) || candidates[0];
+  }
+
+  const dir = isYang ? 1 : -1;
+  const step = ((((BRANCH_INDEX[branch] - BRANCH_INDEX[START_BRANCH[stem]]) * dir) % 12) + 12) % 12;
+  const name = STAGES[step];
+  return {
+    stem,
+    palace,
+    via_palace: viaPalace,
+    branch,
+    name,
+    stage: step,
+    level: LEVEL[name],
+    meaning: MEANING[name],
+  };
+}
+
+/** 某干在九宫的十二长生全表（供自检与文档） */
+function changShengTable(stem) {
+  const out = {};
+  for (let p = 1; p <= 9; p += 1) out[p] = changShengOf(stem, p);
+  return out;
+}
+
+Object.assign(module.exports, {
+  STAGES,
+  START_BRANCH,
+  YANG_STEMS,
+  PALACE_BRANCHES,
+  LEVEL,
+  MEANING,
+  changShengOf,
+  changShengTable,
+});
+
+});
+
 define('ke_ying', function (module, exports, require) {
 /**
  * ke_ying.js — 81 组十干克应（天盘干 + 地盘干）表
@@ -1361,6 +1496,7 @@ const {
 } = require('constants');
 const { getKeYing, KE_YING_TABLE_VERSION } = require('ke_ying');
 const { trueSolarTime, beijingISO } = require('solar_time');
+const { changShengOf } = require('chang_sheng');
 const {
   solarTermAround,
   sunApparentLongitude,
@@ -1623,6 +1759,12 @@ function layoutPalaces({ day, hour, ju, yinYang, ruMuKouJing = 'A' }) {
       // 寄宫附加干：仅芮禽宫（天盘）与坤二宫（地盘）非空；四害/克应仍只按上面的本宫干判定
       tian_pan_qi_yi_extra: tianPanExtra,
       di_pan_qi_yi_extra: diPanExtra,
+      // 十二长生：天盘干 / 地盘干 / 暗干落本宫的旺衰（中五宫寄坤二宫判定）
+      chang_sheng: {
+        tian_pan: changShengOf(tianGan, p.index),
+        di_pan: changShengOf(diGan, p.index),
+        an_gan: changShengOf(anGanAt[p.index], p.index),
+      },
       star: starAt[p.index] || null,
       // 芮禽合宫：天禽随天芮同行，展示时合并为「芮禽」
       star_display: starAt[p.index] === '天芮' ? '芮禽' : starAt[p.index] || null,
@@ -1967,6 +2109,18 @@ function ganLine(gan, extra, label) {
   return `${extra} ${gan || '—'}（含${label} ${extra}）`;
 }
 
+/** 十二长生：天盘干 / 地盘干 / 暗干落本宫的旺衰摘要 */
+function changShengLine(p) {
+  const cs = p.chang_sheng || {};
+  const one = (label, c) =>
+    c
+      ? `${label}${c.stem} ${c.name}（${c.level}，寄生${c.branch}${c.via_palace !== c.palace ? '，中五寄坤二' : ''}）`
+      : null;
+  return [one('天盘', cs.tian_pan), one('地盘', cs.di_pan), one('暗干', cs.an_gan)]
+    .filter(Boolean)
+    .join('；') || '—';
+}
+
 /** 某宫的「九星」描述（芮禽合并 + 暗干） */
 function starLine(p) {
   const isRui = p.star === '天芮';
@@ -2044,6 +2198,7 @@ function buildAiAnalysisText(chart) {
         `- **寄宫说明**：天禽星寄坤二宫、随天芮同行；中五宫不列八门、八神与九星，天盘奇仪取本宫地盘奇仪。` +
           `中宫之干 ${jiGan} 寄至坤二宫地盘与芮禽宫天盘，两处按「寄宫干在前、本宫干在后」显示双干。`
       );
+      lines.push(`- **十二长生**：${changShengLine(p)}`);
     } else {
       lines.push(`- **八神**：${p.god || '—'}`);
       lines.push(`- **九星**：${starLine(p)}`);
@@ -2056,6 +2211,7 @@ function buildAiAnalysisText(chart) {
           ? `${ky.tian_gan}+${ky.di_gan} - ${ky.name}（${ky.meaning}）`
           : '本宫无十干克应';
       lines.push(`- **十干克应**：${kyText}`);
+      lines.push(`- **十二长生**：${changShengLine(p)}`);
     }
 
     const tags = statusTags(p);
@@ -2080,6 +2236,11 @@ function buildAiAnalysisText(chart) {
   lines.push('  - 门迫：八门五行克落宫五行。');
   lines.push('  - 空亡：时旬空亡之地支所映射之宫。');
   lines.push('  - 马星：时支三合驿马位，主变动、出行。');
+  lines.push(
+    '- **十二长生口径**：十干各有长生地支，阳干顺行、阴干逆行；四正宫各辖一支，' +
+      '四隅宫按「阳干取阳支、阴干取阴支」择一，中五宫寄坤二宫判定。' +
+      '旺＝长生/临官/帝旺，平＝沐浴/冠带/胎/养，衰＝衰/病/死/墓/绝；用于衡量天盘干、地盘干、暗干落宫之能量强弱。'
+  );
   const special = detectSpecialPatterns(chart);
   if (special.length) lines.push(`- **特殊格局**：${special.join('；')}`);
   lines.push('');
@@ -2122,7 +2283,7 @@ Object.assign(module.exports, {
 
 
   var api = {};
-  ['astro', 'calendar', 'constants', 'ke_ying', 'solar_time', 'cities', 'qimen'].forEach(function (id) {
+  ['astro', 'calendar', 'constants', 'chang_sheng', 'ke_ying', 'solar_time', 'cities', 'qimen'].forEach(function (id) {
     api[id] = require(id);
   });
   // 扁平化导出，便于页面直接使用
@@ -2134,6 +2295,9 @@ Object.assign(module.exports, {
   api.AN_GAN_RULE = require('qimen').AN_GAN_RULE;
   api.getKeYing = require('ke_ying').getKeYing;
   api.KE_YING_TABLE_VERSION = require('ke_ying').KE_YING_TABLE_VERSION;
+  api.changShengOf = require('chang_sheng').changShengOf;
+  api.changShengTable = require('chang_sheng').changShengTable;
+  api.CHANG_SHENG_STAGES = require('chang_sheng').STAGES;
   api.buildAiAnalysisText = require('ai_text').buildAiAnalysisText;
   api.aiAnalysisFileName = require('ai_text').aiAnalysisFileName;
   api.topicShort = require('ai_text').topicShort;

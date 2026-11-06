@@ -17,7 +17,7 @@ const ENGINE = path.join(ROOT, 'src', 'engine');
 const OUT = path.join(ROOT, 'web', 'qimen.engine.js');
 
 // 模块顺序：被依赖者在前
-const MODULES = ['astro', 'calendar', 'constants', 'ke_ying', 'solar_time', 'cities', 'qimen', 'ai_text'];
+const MODULES = ['astro', 'calendar', 'constants', 'chang_sheng', 'ke_ying', 'solar_time', 'cities', 'qimen', 'ai_text'];
 
 const banner = `/**
  * qimen.engine.js — 自动生成，请勿手改。
@@ -120,7 +120,7 @@ for (const name of MODULES) {
 
 parts.push(`
   var api = {};
-  ['astro', 'calendar', 'constants', 'ke_ying', 'solar_time', 'cities', 'qimen'].forEach(function (id) {
+  ['astro', 'calendar', 'constants', 'chang_sheng', 'ke_ying', 'solar_time', 'cities', 'qimen'].forEach(function (id) {
     api[id] = require(id);
   });
   // 扁平化导出，便于页面直接使用
@@ -132,6 +132,9 @@ parts.push(`
   api.AN_GAN_RULE = require('qimen').AN_GAN_RULE;
   api.getKeYing = require('ke_ying').getKeYing;
   api.KE_YING_TABLE_VERSION = require('ke_ying').KE_YING_TABLE_VERSION;
+  api.changShengOf = require('chang_sheng').changShengOf;
+  api.changShengTable = require('chang_sheng').changShengTable;
+  api.CHANG_SHENG_STAGES = require('chang_sheng').STAGES;
   api.buildAiAnalysisText = require('ai_text').buildAiAnalysisText;
   api.aiAnalysisFileName = require('ai_text').aiAnalysisFileName;
   api.topicShort = require('ai_text').topicShort;

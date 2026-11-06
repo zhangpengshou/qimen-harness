@@ -503,6 +503,7 @@ button { cursor: pointer; }
   letter-spacing: 0;
   line-height: 1.15;
   display: inline-block;
+  position: relative; /* 十二长生标记以此为定位基准 */
   padding: 0 5px;
   border: 1px solid transparent; /* 与地盘奇仪同盒模型，保证右缘对齐 */
   border-radius: 4px;
@@ -557,6 +558,29 @@ button { cursor: pointer; }
   50% { box-shadow: 0 0 0 1px rgba(255, 138, 155, 0.9), 0 0 20px var(--harm-both-glow); }
 }
 /* 全站不使用波浪下划线：既避免与浏览器拼写检查红线混淆，也让四害只靠颜色/光晕区分 */
+
+/* 十二长生：只标天盘干，小字暗色、浮于该干正上方；显隐由顶栏开关控制 */
+.cs-tag {
+  position: absolute;
+  bottom: calc(100% + 1px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-gan);
+  font-size: calc(var(--cell-w) * 0.062);
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: 0;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 7;
+}
+.cs-wang { color: #7d755f; }
+.cs-ping { color: #69788c; }
+.cs-shuai { color: #756a80; }
+.board.hide-chang-sheng .cs-tag { display: none; }
+.board.focus-shen .cs-tag,
+.board.focus-men .cs-tag,
+.board.focus-di .cs-tag { opacity: 0.18; }
 
 /* 角标：空 / 马（右上）—— 同宫时横排，顺序为「空 马」 */
 .corner-badges {
@@ -837,6 +861,9 @@ button { cursor: pointer; }
 .legend .chip.jixing { background: rgba(255, 106, 61, 0.22); border-color: var(--harm-jixing); }
 .legend .chip.menpo { background: rgba(196, 82, 216, 0.22); border-color: var(--harm-menpo); }
 .legend .chip.both { background: linear-gradient(180deg, #c0203a, #7d1022); border-color: #ff8a9b; }
+.legend .chip.cs-wang { background: rgba(125, 117, 95, 0.28); border-color: #7d755f; }
+.legend .chip.cs-ping { background: rgba(105, 120, 140, 0.28); border-color: #69788c; }
+.legend .chip.cs-shuai { background: rgba(117, 106, 128, 0.28); border-color: #756a80; }
 .legend .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
 .legend .dot.kong { background: var(--kong); }
 .legend .dot.ma { background: var(--ma); }

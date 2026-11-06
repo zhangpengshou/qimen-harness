@@ -44,6 +44,7 @@ const {
 } = require('./constants');
 const { getKeYing, KE_YING_TABLE_VERSION } = require('./ke_ying');
 const { trueSolarTime, beijingISO } = require('./solar_time');
+const { changShengOf } = require('./chang_sheng');
 const {
   solarTermAround,
   sunApparentLongitude,
@@ -306,6 +307,12 @@ function layoutPalaces({ day, hour, ju, yinYang, ruMuKouJing = 'A' }) {
       // 寄宫附加干：仅芮禽宫（天盘）与坤二宫（地盘）非空；四害/克应仍只按上面的本宫干判定
       tian_pan_qi_yi_extra: tianPanExtra,
       di_pan_qi_yi_extra: diPanExtra,
+      // 十二长生：天盘干 / 地盘干 / 暗干落本宫的旺衰（中五宫寄坤二宫判定）
+      chang_sheng: {
+        tian_pan: changShengOf(tianGan, p.index),
+        di_pan: changShengOf(diGan, p.index),
+        an_gan: changShengOf(anGanAt[p.index], p.index),
+      },
       star: starAt[p.index] || null,
       // 芮禽合宫：天禽随天芮同行，展示时合并为「芮禽」
       star_display: starAt[p.index] === '天芮' ? '芮禽' : starAt[p.index] || null,
